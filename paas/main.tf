@@ -29,10 +29,15 @@ resource "azurerm_service_plan" "azure_service_plan" {
 
 #MySQL
 resource "random_password" "db_password" {
-  length           = 16
+  length           = 20
   special          = true
+  min_numeric      = 1
+  min_upper        = 1
+  min_lower        = 1
+  min_special      = 1
   override_special = "_%@"
 }
+
 
 resource "azurerm_mysql_flexible_server" "mysql_db_server" {
   name                   = "mysql-${random_id.suffix.hex}"
