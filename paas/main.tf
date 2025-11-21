@@ -83,7 +83,7 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 }
 
 resource "azurerm_key_vault_secret" "vault_db_password" {
-  name         = "vault_db-password"
+  name         = "vault-db-password"
   value        = random_password.db_password.result
   key_vault_id = azurerm_key_vault.keyvault.id
 }
