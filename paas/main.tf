@@ -27,68 +27,6 @@ resource "azurerm_service_plan" "azure_service_plan" {
   tags                = local.tags
 }
 
-#Webapp
-resource "azurerm_linux_web_app" "sample_app" {
-  name                = "${local.base_name}-webapp-${random_id.suffix.hex}"
-  resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
-  service_plan_id     = azurerm_service_plan.azure_service_plan.id
-  https_only          = true
-  tags                = local.tags
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  site_config {
-    always_on = true
-
-    container_registry_use_managed_identity = true
-
-    application_stack {
-      docker_image_name = "${var.app_name}:${var.image_tag}"
-
-      docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
-    }
-  }
-
-  app_settings = {
-    WEBSITES_PORT                       = "80"
-    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "true"
-
-    # Laravel
-    APP_NAME  = var.app_name
-    APP_ENV   = "production"
-    APP_DEBUG = "false"
-    APP_URL   = "https://${local.base_name}-webapp-${random_id.suffix.hex}.azurewebsites.net"
-
-    DB_CONNECTION = "mysql"
-    DB_HOST       = azurerm_mysql_flexible_server.mysql_db_server.fqdn
-    DB_PORT       = "3306"
-    DB_DATABASE   = azurerm_mysql_flexible_database.app_db.name
-    DB_USERNAME   = azurerm_mysql_flexible_server.mysql_db_server.administrator_login
-    DB_PASSWORD   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.db_password.id})"
-
-    APP_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.app_key.id})"
-    MYSQL_ATTR_SSL_CA = "/etc/ssl/certs/ca-certificates.crt"
-
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.insights.connection_string
-  }
-}
-
-
-resource "azurerm_key_vault_access_policy" "web_app" {
-  key_vault_id = azurerm_key_vault.keyvault.id
-  tenant_id    = var.tenant_id
-  object_id    = azurerm_linux_web_app.sample_app.identity[0].principal_id
-
-  secret_permissions = ["Get"]
-
-    depends_on = [
-    azurerm_linux_web_app.sample_app
-  ]
-}
-
 #MySQL
 resource "random_password" "db_password" {
   length           = 16
@@ -144,8 +82,8 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   secret_permissions = ["Get", "List", "Set"]
 }
 
-resource "azurerm_key_vault_secret" "db_password" {
-  name         = "db-password"
+resource "azurerm_key_vault_secret" "vault_db_password" {
+  name         = "vault_db-password"
   value        = random_password.db_password.result
   key_vault_id = azurerm_key_vault.keyvault.id
 }
@@ -192,5 +130,67 @@ resource "azurerm_role_assignment" "acr_pull" {
     azurerm_linux_web_app.sample_app
   ]
 
+}
+
+#Webapp
+resource "azurerm_linux_web_app" "sample_app" {
+  name                = "${local.base_name}-webapp-${random_id.suffix.hex}"
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.azure_service_plan.id
+  https_only          = true
+  tags                = local.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    always_on = true
+
+    container_registry_use_managed_identity = true
+
+    application_stack {
+      docker_image_name = "${var.app_name}:${var.image_tag}"
+
+      docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
+    }
+  }
+
+  app_settings = {
+    WEBSITES_PORT                       = "80"
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "true"
+
+    # Laravel
+    APP_NAME  = var.app_name
+    APP_ENV   = "production"
+    APP_DEBUG = "false"
+    APP_URL   = "https://${local.base_name}-webapp-${random_id.suffix.hex}.azurewebsites.net"
+
+    DB_CONNECTION = "mysql"
+    DB_HOST       = azurerm_mysql_flexible_server.mysql_db_server.fqdn
+    DB_PORT       = "3306"
+    DB_DATABASE   = azurerm_mysql_flexible_database.app_db.name
+    DB_USERNAME   = azurerm_mysql_flexible_server.mysql_db_server.administrator_login
+    DB_PASSWORD   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.vault_db_password.id})"
+
+    APP_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.app_key.id})"
+    MYSQL_ATTR_SSL_CA = "/etc/ssl/certs/ca-certificates.crt"
+
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.insights.connection_string
+  }
+}
+
+
+resource "azurerm_key_vault_access_policy" "web_app" {
+  key_vault_id = azurerm_key_vault.keyvault.id
+  tenant_id    = var.tenant_id
+  object_id    = azurerm_linux_web_app.sample_app.identity[0].principal_id
+
+  secret_permissions = ["Get"]
+
+    depends_on = [
+    azurerm_linux_web_app.sample_app
+  ]
 }
 
