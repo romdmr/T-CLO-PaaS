@@ -121,7 +121,9 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = data.azurerm_resource_group.rg.name
   location            = data.azurerm_resource_group.rg.location
   sku                 = "Standard"
-  admin_enabled       = false
+  admin_enabled       = true
+  admin_username      = "mysqladmin"
+  admin_password      = random_password.db_password.result
 
   tags = local.tags
 }
